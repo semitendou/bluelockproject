@@ -5,9 +5,12 @@
   "main": "src/app.js",
   "type": "module",
   "scripts": {
-    "start": "npx serve src"
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
   },
   "devDependencies": {
-    "serve": "^13.0.0"
+    "vite": "^5.0.0",
+    "@supabase/supabase-js": "^2.4.0"
   }
 }

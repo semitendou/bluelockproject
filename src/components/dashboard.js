@@ -1,212 +1,856 @@
-// Dashboard component: TODAY view
-import { getTasks, addTask, updateTask, deleteTask, toggleTaskCompletion, getEgoPoints, getCurrentLevel, getLevelProgress } from '../data/storage.js';
+import {
+  getTasks,
+  addTask,
+  updateTask,
+  deleteTask,
+  toggleTaskCompletion,
+  getEgoPoints,
+  getCurrentLevel,
+  getLevelProgress,
+} from '../data/storage.js';
+
 import { renderRadar } from './radarChart.js';
 import { showTaskModal } from './taskFormModal.js';
+import { renderDailyDebrief } from './dailyDebrief.js';
 
-// Utility: format date to YYYY-MM-DD
-function toDateStr(d) {
-  return d.toISOString().split('T')[0];
+function getToday() {
+  return new Date().toISOString().split('T')[0];
 }
 
-export function renderDashboard(container, data) {
-  container.innerHTML = '';
+function calculatePlayerStats(data) {
+  const base = data.profile?.stats || {
+    EXECUTION: 32,
+    FOCUS: 27,
+    DISCIPLINE: 30,
+    MASTERY: 25,
+    CREATION: 28,
+  };
 
-  // Header
-  const header = document.createElement('header');
-  header.innerHTML = `<h2>TODAY</h2>`;
-  header.style.padding = '1rem';
-  container.appendChild(header);
+  const tasks = data.tasks || [];
 
-  const main = document.createElement('main');
-  main.style.padding = '1rem';
-  main.style.display = 'flex';
-  main.style.flexDirection = 'column';
-  main.style.gap = '1.5rem';
+  const completedTasks = tasks.filter(
+    (task) => task.completed
+  );
 
-  // Stats section
-  const stats = document.createElement('section');
-  stats.style.display = 'flex';
-  stats.style.justifyContent = 'space-between';
-  stats.style.alignItems = 'center';
+  const completionRate =
+    tasks.length > 0
+      ? completedTasks.length / tasks.length
+      : 0;
 
-  const dateEl = document.createElement('div');
-  dateEl.textContent = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+  const trainingDays = new Set(
+    completedTasks
+      .map(
+        (task) =>
+          task.completedDate?.split('T')[0] ||
+          task.date
+      )
+      .filter(Boolean)
+  ).size;
 
-  const nameEl = document.createElement('div');
-  nameEl.textContent = data.profile.name;
+  const academic = completedTasks.filter(
+    (task) => task.category === 'ACADEMIC'
+  ).length;
 
-  const egoEl = document.createElement('div');
-  egoEl.textContent = `EGO POINTS: ${getEgoPoints()}`;
+  const reading = completedTasks.filter(
+    (task) => task.category === 'READING'
+  ).length;
 
-  const levelInfo = getCurrentLevel();
-  const levelEl = document.createElement('div');
-  levelEl.textContent = `LEVEL ${String(levelInfo.id).padStart(2, '0')} — ${levelInfo.name}`;
+  const languages = completedTasks.filter(
+    (task) => task.category === 'LANGUAGES'
+  ).length;
 
-  const progress = getLevelProgress();
-  const progressBar = document.createElement('progress');
-  progressBar.max = 100;
-  progressBar.value = Math.floor(progress.percent);
+  const projects = completedTasks.filter(
+    (task) => task.category === 'PROJECTS'
+  ).length;
 
-  stats.append(dateEl, nameEl, egoEl, levelEl, progressBar);
-  main.appendChild(stats);
+  const coding = completedTasks.filter(
+    (task) => task.category === 'CODING'
+  ).length;
 
-  // Radar chart
-  const radarSection = document.createElement('section');
-  radarSection.style.display = 'flex';
-  radarSection.style.justifyContent = 'center';
-  renderRadar(radarSection, data.profile.stats);
-  main.appendChild(radarSection);
+  const competitions = completedTasks.filter(
+    (task) => task.category === 'COMPETITIONS'
+  ).length;
 
-  // Win condition placeholder
-  const winSection = document.createElement('section');
-  winSection.style.display = 'flex';
-  winSection.style.justifyContent = 'space-between';
-  winSection.style.alignItems = 'center';
+  const executionGain = Math.round(
+    completionRate * 25
+  );
 
-  const winCondition = document.createElement('div');
-  winCondition.textContent = 'TODAY’S WIN CONDITION';
-  winCondition.style.fontWeight = '600';
-  const editWinBtn = document.createElement('button');
-  editWinBtn.textContent = 'Edit';
-  editWinBtn.className = 'btn';
-  winCondition.appendChild(editWinBtn);
-  winSection.appendChild(winCondition);
-  main.appendChild(winSection);
+  const focusGain = Math.min(
+    trainingDays * 2,
+    18
+  );
 
-  // Training time and completion placeholder
-  const today = new Date();
-  const todayStr = toDateStr(today);
-  const todayTasks = getTasks().filter(t => t.date === todayStr);
-  const completedToday = todayTasks.filter(t => t.completed).length;
-  const completionPercent = todayTasks.length ? Math.round((completedToday / todayTasks.length) * 100) : 0;
-  const trainingTimeSection = document.createElement('section');
-  trainingTimeSection.style.display = 'flex';
-  trainingTimeSection.style.justifyContent = 'space-between';
-  const trainingTimeEl = document.createElement('div');
-  trainingTimeEl.textContent = `TRAINING TIME: 0h`; // placeholder
-  const completionEl = document.createElement('div');
-  completionEl.textContent = `COMPLETION: ${completionPercent}%`;
-  trainingTimeSection.appendChild(trainingTimeEl);
-  trainingTimeSection.appendChild(completionEl);
-  main.appendChild(trainingTimeSection);
+  const disciplineGain = Math.min(
+    trainingDays * 3,
+    24
+  );
 
-  // Task list section
-  const tasksSection = document.createElement('section');
-  tasksSection.style.display = 'flex';
-  tasksSection.style.flexDirection = 'column';
+  const masteryGain = Math.min(
+    academic * 3 +
+      reading +
+      languages * 2,
+    25
+  );
 
-  const taskHeader = document.createElement('h3');
-  taskHeader.textContent = "TODAY'S TRAINING";
-  tasksSection.appendChild(taskHeader);
+  const creationGain = Math.min(
+    projects * 4 +
+      coding * 3 +
+      competitions,
+    25
+  );
 
-  const taskList = document.createElement('ul');
-  taskList.id = 'task-list';
-  tasksSection.appendChild(taskList);
+  const stats = {
+    EXECUTION: Math.min(
+      100,
+      Math.round(
+        base.EXECUTION + executionGain
+      )
+    ),
 
-  const priorityOrder = { CRITICAL: 4, HIGH: 3, MEDIUM: 2, LOW: 1 };
-  todayTasks.sort((a, b) => priorityOrder[b.priority] - priorityOrder[a.priority]);
-  todayTasks.forEach(t => {
-    const li = createTaskItem(t);
-    taskList.appendChild(li);
-  });
+    FOCUS: Math.min(
+      100,
+      Math.round(
+        base.FOCUS + focusGain
+      )
+    ),
 
-  const addTaskBtn = document.createElement('button');
-  addTaskBtn.textContent = '+ ADD TASK';
-  addTaskBtn.className = 'btn';
-  addTaskBtn.addEventListener('click', () => {
-    showTaskModal(null, (taskData) => {
-      if (!taskData.date) taskData.date = todayStr;
-      const added = addTask(taskData);
-      const li = createTaskItem(added);
-      taskList.appendChild(li);
-    });
-  });
-  tasksSection.appendChild(addTaskBtn);
+    DISCIPLINE: Math.min(
+      100,
+      Math.round(
+        base.DISCIPLINE + disciplineGain
+      )
+    ),
 
-  main.appendChild(tasksSection);
-  container.appendChild(main);
-}
+    MASTERY: Math.min(
+      100,
+      Math.round(
+        base.MASTERY + masteryGain
+      )
+    ),
 
-function createTaskItem(task) {
-  const li = document.createElement('li');
-  li.style.display = 'flex';
-  li.style.alignItems = 'center';
-  li.style.justifyContent = 'space-between';
-  li.style.padding = '0.5rem 0';
+    CREATION: Math.min(
+      100,
+      Math.round(
+        base.CREATION + creationGain
+      )
+    ),
+  };
 
-  const left = document.createElement('div');
-  left.style.display = 'flex';
-  left.style.alignItems = 'center';
+  const debriefs =
+    data.dailyDebriefs || [];
 
-  const checkbox = document.createElement('input');
-  checkbox.type = 'checkbox';
-  checkbox.checked = task.completed;
-  checkbox.style.marginRight = '0.5rem';
+  const recentDebriefs =
+    debriefs
+      .slice()
+      .sort((a, b) =>
+        String(b.date).localeCompare(
+          String(a.date)
+        )
+      )
+      .slice(0, 7);
 
-  const nameSpan = document.createElement('span');
-  nameSpan.textContent = task.name;
-  if (task.completed) {
-    nameSpan.style.textDecoration = 'line-through';
-    nameSpan.style.opacity = '0.6';
+  if (recentDebriefs.length > 0) {
+    const averages = {
+      EXECUTION: 0,
+      FOCUS: 0,
+      DISCIPLINE: 0,
+      MASTERY: 0,
+      CREATION: 0,
+    };
+
+    recentDebriefs.forEach(
+      (debrief) => {
+        averages.EXECUTION +=
+          Number(debrief.execution) || 0;
+
+        averages.FOCUS +=
+          Number(debrief.focus) || 0;
+
+        averages.DISCIPLINE +=
+          Number(debrief.discipline) || 0;
+
+        averages.MASTERY +=
+          Number(debrief.learning) || 0;
+
+        averages.CREATION +=
+          Number(debrief.creation) || 0;
+      }
+    );
+
+    Object.keys(averages).forEach(
+      (stat) => {
+        averages[stat] =
+          averages[stat] /
+          recentDebriefs.length;
+
+        const contribution =
+          Math.round(
+            (averages[stat] - 1) * 0.8
+          );
+
+        stats[stat] = Math.min(
+          100,
+          stats[stat] +
+            Math.max(0, contribution)
+        );
+      }
+    );
   }
 
-  left.append(checkbox, nameSpan);
-  li.appendChild(left);
+  return stats;
+}
 
-  const info = document.createElement('div');
-  info.style.display = 'flex';
-  info.style.gap = '0.5rem';
-  const cat = document.createElement('span');
-  cat.textContent = task.category;
-  const dur = document.createElement('span');
-  dur.textContent = `${task.targetDuration || 0}h`;
-  const points = document.createElement('span');
-  points.textContent = `${task.egoPoints} EP`;
-  const diff = document.createElement('span');
-  diff.textContent = `D${task.difficulty}`;
-  info.append(cat, dur, points, diff);
-  li.appendChild(info);
+function createStatBox(
+  label,
+  value
+) {
+  const box =
+    document.createElement('div');
 
-  const editBtn = document.createElement('button');
-  editBtn.className = 'btn';
-  editBtn.style.marginLeft = '0.5rem';
-  editBtn.textContent = '✎';
-  editBtn.title = 'Edit';
-  li.appendChild(editBtn);
-
-  const deleteBtn = document.createElement('button');
-  deleteBtn.className = 'btn';
-  deleteBtn.style.marginLeft = '0.5rem';
-  deleteBtn.textContent = '✕';
-  deleteBtn.title = 'Delete';
-  li.appendChild(deleteBtn);
-
-  checkbox.addEventListener('change', () => {
-    toggleTaskCompletion(task.id, checkbox.checked);
-    if (checkbox.checked) {
-      nameSpan.style.textDecoration = 'line-through';
-      nameSpan.style.opacity = '0.6';
-    } else {
-      nameSpan.style.textDecoration = 'none';
-      nameSpan.style.opacity = '1';
-    }
+  Object.assign(box.style, {
+    border:
+      '1px solid rgba(255,255,255,0.12)',
+    padding: '1rem',
+    minWidth: '130px',
+    flex: '1 1 130px',
   });
 
-  deleteBtn.addEventListener('click', () => {
-    deleteTask(task.id);
-    li.remove();
-  });
+  const labelEl =
+    document.createElement('div');
 
-  editBtn.addEventListener('click', () => {
-    showTaskModal(task, (updated) => {
-      updateTask(task.id, updated);
-      nameSpan.textContent = updated.name || task.name;
-      cat.textContent = updated.category || task.category;
-      dur.textContent = `${updated.targetDuration || 0}h`;
-      points.textContent = `${updated.egoPoints} EP`;
-      diff.textContent = `D${updated.difficulty}`;
+  labelEl.textContent = label;
+  labelEl.style.fontSize = '0.75rem';
+  labelEl.style.opacity = '0.6';
+  labelEl.style.letterSpacing = '0.08em';
+
+  const valueEl =
+    document.createElement('div');
+
+  valueEl.textContent = value;
+  valueEl.style.fontSize = '1.8rem';
+  valueEl.style.fontWeight = '700';
+  valueEl.style.marginTop = '0.3rem';
+
+  box.append(
+    labelEl,
+    valueEl
+  );
+
+  return box;
+}
+
+function renderTaskList(
+  container,
+  tasks
+) {
+  container.innerHTML = '';
+
+  if (tasks.length === 0) {
+    const empty =
+      document.createElement('p');
+
+    empty.textContent =
+      'NO TRAINING ASSIGNED FOR TODAY.';
+
+    empty.style.opacity = '0.5';
+
+    container.appendChild(empty);
+
+    return;
+  }
+
+  tasks.forEach((task) => {
+    const row =
+      document.createElement('div');
+
+    Object.assign(row.style, {
+      border:
+        '1px solid rgba(255,255,255,0.12)',
+      padding: '1rem',
+      marginBottom: '0.75rem',
+      display: 'flex',
+      gap: '1rem',
+      alignItems: 'center',
+      flexWrap: 'wrap',
     });
-  });
 
-  return li;
+    const checkbox =
+      document.createElement('input');
+
+    checkbox.type = 'checkbox';
+    checkbox.checked =
+      Boolean(task.completed);
+
+    checkbox.addEventListener(
+      'change',
+      () => {
+        toggleTaskCompletion(
+          task.id,
+          checkbox.checked
+        );
+
+        window.dispatchEvent(
+          new Event(
+            'bluelock-data-changed'
+          )
+        );
+      }
+    );
+
+    const info =
+      document.createElement('div');
+
+    info.style.flex =
+      '1 1 250px';
+
+    const name =
+      document.createElement('strong');
+
+    name.textContent =
+      task.name || 'UNTITLED TASK';
+
+    if (task.completed) {
+      name.style.textDecoration =
+        'line-through';
+
+      name.style.opacity =
+        '0.5';
+    }
+
+    const details =
+      document.createElement('div');
+
+    details.textContent =
+      `${task.category || 'PERSONAL'} • ${
+        task.targetDuration || 0
+      } HRS • ${
+        task.egoPoints || 0
+      } EP • ${
+        task.difficulty || 1
+      }/5`;
+
+    details.style.fontSize =
+      '0.75rem';
+
+    details.style.opacity =
+      '0.6';
+
+    details.style.marginTop =
+      '0.4rem';
+
+    info.append(
+      name,
+      details
+    );
+
+    const edit =
+      document.createElement('button');
+
+    edit.className = 'btn';
+    edit.textContent = 'EDIT';
+
+    edit.addEventListener(
+      'click',
+      () => {
+        showTaskModal(
+          task,
+          (updatedTask) => {
+            updateTask(
+              task.id,
+              updatedTask
+            );
+
+            window.dispatchEvent(
+              new Event(
+                'bluelock-data-changed'
+              )
+            );
+          }
+        );
+      }
+    );
+
+    const remove =
+      document.createElement('button');
+
+    remove.className = 'btn';
+    remove.textContent = 'DELETE';
+
+    remove.addEventListener(
+      'click',
+      () => {
+        const confirmed =
+          window.confirm(
+            'DELETE THIS TRAINING TASK?'
+          );
+
+        if (!confirmed) {
+          return;
+        }
+
+        deleteTask(task.id);
+
+        window.dispatchEvent(
+          new Event(
+            'bluelock-data-changed'
+          )
+        );
+      }
+    );
+
+    row.append(
+      checkbox,
+      info,
+      edit,
+      remove
+    );
+
+    container.appendChild(row);
+  });
+}
+
+export function renderDashboard(
+  container,
+  data
+) {
+  container.innerHTML = '';
+
+  const today =
+    getToday();
+
+  const tasks =
+    getTasks().filter(
+      (task) =>
+        task.date === today
+    );
+
+  const completed =
+    tasks.filter(
+      (task) =>
+        task.completed
+    ).length;
+
+  const completion =
+    tasks.length > 0
+      ? Math.round(
+          (completed /
+            tasks.length) *
+            100
+        )
+      : 0;
+
+  const egoPoints =
+    getEgoPoints();
+
+  const level =
+    getCurrentLevel();
+
+  const levelProgress =
+    getLevelProgress();
+
+  const stats =
+    calculatePlayerStats(data);
+
+  /* PAGE HEADER */
+
+  const heading =
+    document.createElement('h1');
+
+  heading.textContent =
+    'TODAY';
+
+  heading.style.fontSize =
+    'clamp(2rem, 5vw, 4rem)';
+
+  heading.style.letterSpacing =
+    '0.08em';
+
+  heading.style.marginBottom =
+    '0.25rem';
+
+  container.appendChild(
+    heading
+  );
+
+  const playerName =
+    document.createElement('div');
+
+  playerName.textContent =
+    data.profile?.name ||
+    'PLAYER';
+
+  playerName.style.fontSize =
+    '1rem';
+
+  playerName.style.opacity =
+    '0.65';
+
+  playerName.style.letterSpacing =
+    '0.1em';
+
+  container.appendChild(
+    playerName
+  );
+
+  /* TOP STATISTICS */
+
+  const statsGrid =
+    document.createElement('div');
+
+  Object.assign(
+    statsGrid.style,
+    {
+      display: 'flex',
+      flexWrap: 'wrap',
+      gap: '0.75rem',
+      margin:
+        '1.5rem 0 2rem',
+    }
+  );
+
+  statsGrid.append(
+    createStatBox(
+      'LEVEL',
+      `${String(
+        level.id
+      ).padStart(
+        2,
+        '0'
+      )} — ${
+        level.name
+      }`
+    ),
+
+    createStatBox(
+      'EGO POINTS',
+      egoPoints
+    ),
+
+    createStatBox(
+      'TODAY',
+      `${completed}/${tasks.length}`
+    ),
+
+    createStatBox(
+      'COMPLETION',
+      `${completion}%`
+    )
+  );
+
+  container.appendChild(
+    statsGrid
+  );
+
+  /* LEVEL PROGRESS */
+
+  const levelSection =
+    document.createElement(
+      'section'
+    );
+
+  const levelTitle =
+    document.createElement(
+      'h3'
+    );
+
+  levelTitle.textContent =
+    'EGO PROGRESSION';
+
+  const levelText =
+    document.createElement(
+      'div'
+    );
+
+  if (level.id === 8) {
+    levelText.textContent =
+      'COMPLETE EGO — MAXIMUM LEVEL';
+  } else {
+    levelText.textContent =
+      `${levelProgress.progress} / ${
+        levelProgress.needed
+      } EP TO NEXT LEVEL`;
+  }
+
+  levelText.style.opacity =
+    '0.65';
+
+  const progressTrack =
+    document.createElement(
+      'div'
+    );
+
+  Object.assign(
+    progressTrack.style,
+    {
+      height: '8px',
+      background:
+        'rgba(255,255,255,0.08)',
+      marginTop: '0.75rem',
+      overflow: 'hidden',
+    }
+  );
+
+  const progressBar =
+    document.createElement(
+      'div'
+    );
+
+  Object.assign(
+    progressBar.style,
+    {
+      height: '100%',
+      width: `${Math.min(
+        100,
+        Math.max(
+          0,
+          levelProgress.percent
+        )
+      )}%`,
+      background: '#00b0ff',
+    }
+  );
+
+  progressTrack.appendChild(
+    progressBar
+  );
+
+  levelSection.append(
+    levelTitle,
+    levelText,
+    progressTrack
+  );
+
+  container.appendChild(
+    levelSection
+  );
+
+  /* PLAYER SNAPSHOT */
+
+  const snapshot =
+    document.createElement(
+      'section'
+    );
+
+  snapshot.style.marginTop =
+    '2.5rem';
+
+  const snapshotTitle =
+    document.createElement(
+      'h3'
+    );
+
+  snapshotTitle.textContent =
+    'PLAYER SNAPSHOT';
+
+  const radarContainer =
+    document.createElement(
+      'div'
+    );
+
+  Object.assign(
+    radarContainer.style,
+    {
+      width: '100%',
+      maxWidth: '560px',
+      minHeight: '420px',
+      margin: '0 auto',
+    }
+  );
+
+  renderRadar(
+    radarContainer,
+    stats
+  );
+
+  snapshot.append(
+    snapshotTitle,
+    radarContainer
+  );
+
+  container.appendChild(
+    snapshot
+  );
+
+  /* WIN CONDITION */
+
+  const winSection =
+    document.createElement(
+      'section'
+    );
+
+  Object.assign(
+    winSection.style,
+    {
+      marginTop: '2.5rem',
+      border:
+        '1px solid rgba(255,255,255,0.12)',
+      padding: '1.25rem',
+    }
+  );
+
+  const winTitle =
+    document.createElement(
+      'h3'
+    );
+
+  winTitle.textContent =
+    "TODAY'S WIN CONDITION";
+
+  const winInput =
+    document.createElement(
+      'input'
+    );
+
+  winInput.className =
+    'input';
+
+  winInput.value =
+    data.winConditions?.[today] ||
+    '';
+
+  winInput.placeholder =
+    'Define the one outcome that would make today meaningful.';
+
+  const saveWin =
+    document.createElement(
+      'button'
+    );
+
+  saveWin.className =
+    'btn';
+
+  saveWin.textContent =
+    'SET WIN CONDITION';
+
+  saveWin.style.marginTop =
+    '0.75rem';
+
+  saveWin.addEventListener(
+    'click',
+    () => {
+      if (!data.winConditions) {
+        data.winConditions = {};
+      }
+
+      data.winConditions[today] =
+        winInput.value.trim();
+
+      localStorage.setItem(
+        'bluelock-app-data',
+        JSON.stringify(data)
+      );
+
+      window.dispatchEvent(
+        new Event(
+          'bluelock-data-changed'
+        )
+      );
+    }
+  );
+
+  winSection.append(
+    winTitle,
+    winInput,
+    saveWin
+  );
+
+  container.appendChild(
+    winSection
+  );
+
+  /* TODAY'S TRAINING */
+
+  const trainingSection =
+    document.createElement(
+      'section'
+    );
+
+  trainingSection.style.marginTop =
+    '2.5rem';
+
+  const trainingTitle =
+    document.createElement(
+      'h3'
+    );
+
+  trainingTitle.textContent =
+    "TODAY'S TRAINING";
+
+  const addButton =
+    document.createElement(
+      'button'
+    );
+
+  addButton.className =
+    'btn';
+
+  addButton.textContent =
+    '+ ADD TRAINING';
+
+  addButton.style.marginBottom =
+    '1rem';
+
+  addButton.addEventListener(
+    'click',
+    () => {
+      showTaskModal(
+        null,
+        (newTask) => {
+          addTask(newTask);
+
+          window.dispatchEvent(
+            new Event(
+              'bluelock-data-changed'
+            )
+          );
+        }
+      );
+    }
+  );
+
+  const taskList =
+    document.createElement(
+      'div'
+    );
+
+  trainingSection.append(
+    trainingTitle,
+    addButton,
+    taskList
+  );
+
+  container.appendChild(
+    trainingSection
+  );
+
+  renderTaskList(
+    taskList,
+    tasks
+  );
+
+  /* DAILY DEBRIEF */
+
+  const debriefSection =
+    document.createElement(
+      'section'
+    );
+
+  Object.assign(
+    debriefSection.style,
+    {
+      marginTop: '3rem',
+      borderTop:
+        '1px solid rgba(255,255,255,0.12)',
+      paddingTop: '1.5rem',
+    }
+  );
+
+  container.appendChild(
+    debriefSection
+  );
+
+  renderDailyDebrief(
+    debriefSection,
+    data
+  );
 }

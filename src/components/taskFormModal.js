@@ -118,6 +118,8 @@ export function showTaskModal(existingTask, onSubmit) {
   footer.appendChild(cancelBtn);
   footer.appendChild(submitBtn);
 
+  form.appendChild(footer); // move footer inside form
+
   form.addEventListener('submit', (e) => {
     e.preventDefault();
     const formData = new FormData(form);
@@ -145,7 +147,6 @@ export function showTaskModal(existingTask, onSubmit) {
 
   body.appendChild(form);
   modal.appendChild(body);
-  modal.appendChild(footer);
   overlay.appendChild(modal);
   document.body.appendChild(overlay);
 }

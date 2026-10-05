@@ -159,3 +159,33 @@ h2, h3, h4, h5, h6 {
 .modal button.btn {
   margin-left: 0.5rem;
 }
+
+/* New stat block styles */
+.stat-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: var(--surface-color);
+  padding: 0.5rem;
+  border-radius: 0.25rem;
+  width: calc(25% - 1rem);
+  box-sizing: border-box;
+}
+
+.stat-label {
+  color: var(--accent-color);
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+}
+
+.stat-value {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--text-color);
+}
+
+/* Ensure radar chart container has constrained width */
+section > canvas {
+  max-width: 300px;
+  width: 100%;
+}
