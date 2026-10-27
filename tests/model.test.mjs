@@ -1,0 +1,14 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {normalize,validateImport,addTask,toggleTask,summary,getLevel,isoDay,addDays,streak,activitySeries,statScores,unlockedAchievements} from '../model.mjs';
+
+test('creates a clean, backwards-compatible default profile',()=>{const s=normalize(null);assert.equal(s.profile.stats.EXECUTION,32);assert.deepEqual(s.tasks,[]);assert.equal(s.egoPoints,0);});
+test('preserves old data and fills new collections',()=>{const s=normalize({profile:{name:'OLD PLAYER'},tasks:[{id:1,name:'History'}],egoPoints:45});assert.equal(s.profile.name,'OLD PLAYER');assert.equal(s.profile.stats.FOCUS,27);assert.equal(s.tasks[0].name,'History');assert.deepEqual(s.projects,[]);});
+test('adds a valid task and awards EP once even after reopen',()=>{let s=addTask(normalize(null),{name:'Review physics',date:'2026-10-27',egoPoints:25});const id=s.tasks[0].id;s=toggleTask(s,id,true,'2026-10-27');assert.equal(s.egoPoints,25);assert.equal(s.egoTransactions.length,1);s=toggleTask(s,id,false,'2026-10-27');assert.equal(s.egoPoints,25);s=toggleTask(s,id,true,'2026-10-28');assert.equal(s.egoPoints,25);assert.equal(s.egoTransactions.length,1);});
+test('rejects blank tasks',()=>assert.throws(()=>addTask(normalize(null),{name:'   '})));
+test('levels use expected thresholds',()=>{assert.equal(getLevel(0).current.name,'AWAKENING');assert.equal(getLevel(199).current.id,1);assert.equal(getLevel(200).current.id,2);assert.equal(getLevel(8000).current.id,8);assert.equal(getLevel(8000).percent,100);});
+test('date addition crosses months correctly',()=>{assert.equal(addDays('2026-10-31',1),'2026-11-01');assert.equal(addDays('2026-03-01',-1),'2026-02-28');});
+test('streak checks uninterrupted completions',()=>{let s=normalize(null);for(const day of ['2026-10-25','2026-10-26','2026-10-27'])s.tasks.push({date:day,completed:true,completedDate:`${day}T12:00:00`});assert.equal(streak(s,'2026-10-27'),3);assert.equal(streak(s,'2026-10-28'),3);assert.equal(streak(s,'2026-10-29'),0);});
+test('summary and achievements reflect saved activity',()=>{let s=normalize(null);s=addTask(s,{name:'Study',date:'2026-10-27',category:'ACADEMIC',egoPoints:30});s=toggleTask(s,s.tasks[0].id,true,'2026-10-27');assert.equal(summary(s,'2026-10-27').today.percent,100);assert.equal(unlockedAchievements(s)[0].name,'FIRST STEP');assert.ok(statScores(s).EXECUTION>32);assert.equal(activitySeries(s,1,'2026-10-27')[0].points,30);});
+test('import rejects unexpected data shape',()=>{assert.throws(()=>validateImport({tasks:[]}));assert.throws(()=>validateImport({profile:{},tasks:'invalid'}));assert.equal(validateImport({profile:{name:'TEST'},tasks:[]}).profile.name,'TEST');});
+test('normalization protects against missing arrays and negative EP',()=>{const s=normalize({tasks:{},books:null,profile:{},egoPoints:-50});assert.deepEqual(s.tasks,[]);assert.deepEqual(s.books,[]);assert.equal(s.egoPoints,0);});

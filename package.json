@@ -1,16 +1,12 @@
 {
-  "name": "bluelockapp",
-  "version": "0.1.0",
-  "description": "Blue Lock inspired personal productivity dashboard",
-  "main": "src/app.js",
+  "name": "project-ego",
+  "version": "1.0.0",
+  "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview"
-  },
-  "devDependencies": {
-    "vite": "^5.0.0",
-    "@supabase/supabase-js": "^2.4.0"
+    "build": "node build.mjs",
+    "test": "node --test tests/*.test.mjs",
+    "check": "npm test && npm run build",
+    "start": "python3 -m http.server 4173"
   }
 }

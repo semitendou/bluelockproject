@@ -1,1 +1,8 @@
+node_modules/
 dist/
+src/dist/
+.env
+.env.*
+!.env.example
+.DS_Store
+*.log
